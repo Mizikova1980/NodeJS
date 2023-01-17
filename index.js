@@ -34,24 +34,25 @@ const config = {
   delete: args.delete
 }
 
-function createDir (src, cb) {
-  if (!fs.existsSync(src)) {
-    fs.mkdir(src, function (err) {
-      if (err) return cb(err)
+const deleteDir = config.delete
+const srcDir = config.src
 
-      cb(null)
-    })
-  } else {
+function createDir (src, cb) {
+  fs.mkdir(src, function (err) {
+    if (err && err.code === 'EEXIST') return cb(null)
+    if (err) return cb(err)
+
     cb(null)
-  }
+  })
 }
 
-function sorter (src) {
+function sorter (src, dist, del) {
   fs.readdir(src, function (err, files) {
     if (err) throw err
 
     files.forEach(function (file) {
       const currentPath = path.join(src, file)
+
       fs.stat(currentPath, function (err, stats) {
         if (err) throw err
         if (stats.isDirectory()) {
@@ -61,18 +62,20 @@ function sorter (src) {
             if (err) throw err
             const directory = config.dist
             const parsePath = path.parse(currentPath)
-            console.log(parsePath)
             const dirname = parsePath.name[0].toUpperCase()
-            console.log(dirname)
-            console.log(`copy file: ${currentPath}`)
 
             createDir(`${directory}/${dirname}`, function (err) {
               if (err) throw err
               const newPath = path.join(directory, dirname, file)
-              fs.rename(currentPath, newPath, function (err) {
+              fs.copyFile(currentPath, newPath, function (err) {
                 if (err) throw err
+                if (deleteDir) {
+                  fs.unlink(currentPath, () => {
+                    // fs.rmdir(dir, () => {})
+                    fs.rmdir(srcDir, () => {})
+                  })
+                }
               })
-              console.log(newPath)
             })
           })
         }
@@ -80,8 +83,9 @@ function sorter (src) {
     })
   })
 }
+
 try {
-  sorter(config.src)
+  sorter(config.src, config.dist, config.delete)
 } catch (error) {
   console.log(error.message)
 }
