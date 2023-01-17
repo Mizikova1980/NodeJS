@@ -5,12 +5,15 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node index.js --entry ./src --dist ./dist"
+    "start": "node index.js --entry ./src --dist ./dist",
+    "server": "node server.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "dir-compare": "^4.0.0",
     "express": "^4.18.2",
+    "fs-extra": "^11.1.0",
     "yargs": "^17.6.2"
   },
   "devDependencies": {
