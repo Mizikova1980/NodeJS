@@ -72,7 +72,7 @@ function sorter (src, dist, del) {
                 if (deleteDir) {
                   fs.unlink(currentPath, () => {
                     // fs.rmdir(dir, () => {})
-                    gitfs.rmdir(srcDir, () => {})
+                    fs.rmdir(srcDir, () => {})
                   })
                 }
               })
