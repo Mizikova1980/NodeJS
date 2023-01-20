@@ -1,6 +1,7 @@
 const yargs = require('yargs')
 const fs = require('fs')
 const path = require('path')
+const Observer = require('./observer/observer')
 
 const args = yargs
   .usage('Usage: node $0 [options]')
@@ -34,9 +35,6 @@ const config = {
   delete: args.delete
 }
 
-const deleteDir = config.delete
-const srcDir = config.src
-
 function createDir (src, cb) {
   fs.mkdir(src, function (err) {
     if (err && err.code === 'EEXIST') return cb(null)
@@ -46,17 +44,29 @@ function createDir (src, cb) {
   })
 }
 
+const observer = new Observer(() => {
+  if (config.delete) {
+    fs.rm(config.src, { recursive: true }, () => {
+      console.log('deleted')
+    })
+  }
+})
+
 function sorter (src, dist, del) {
+  observer.addObserver(src)
   fs.readdir(src, function (err, files) {
     if (err) throw err
 
     files.forEach(function (file) {
       const currentPath = path.join(src, file)
 
+      observer.addObserver(currentPath)
+
       fs.stat(currentPath, function (err, stats) {
         if (err) throw err
         if (stats.isDirectory()) {
           sorter(currentPath)
+          observer.removeObserver(currentPath)
         } else {
           createDir(config.dist, function (err) {
             if (err) throw err
@@ -69,23 +79,20 @@ function sorter (src, dist, del) {
               const newPath = path.join(directory, dirname, file)
               fs.copyFile(currentPath, newPath, function (err) {
                 if (err) throw err
-                if (deleteDir) {
-                  fs.unlink(currentPath, () => {
-                    // fs.rmdir(dir, () => {})
-                    fs.rmdir(srcDir, () => {})
-                  })
-                }
+                observer.removeObserver(currentPath)
               })
             })
           })
         }
       })
     })
+    observer.removeObserver(src)
   })
 }
 
 try {
   sorter(config.src, config.dist, config.delete)
+  observer.start('start')
 } catch (error) {
   console.log(error.message)
 }
