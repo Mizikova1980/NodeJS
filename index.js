@@ -34,54 +34,77 @@ const config = {
   delete: args.delete
 }
 
-function createDir (src, cb) {
-  if (!fs.existsSync(src)) {
-    fs.mkdir(src, function (err) {
-      if (err) return cb(err)
-
-      cb(null)
-    })
-  } else {
-    cb(null)
-  }
-}
-
-function sorter (src) {
-  fs.readdir(src, function (err, files) {
-    if (err) throw err
-
-    files.forEach(function (file) {
-      const currentPath = path.join(src, file)
-      fs.stat(currentPath, function (err, stats) {
-        if (err) throw err
-        if (stats.isDirectory()) {
-          sorter(currentPath)
-        } else {
-          createDir(config.dist, function (err) {
-            if (err) throw err
-            const directory = config.dist
-            const parsePath = path.parse(currentPath)
-            console.log(parsePath)
-            const dirname = parsePath.name[0].toUpperCase()
-            console.log(dirname)
-            console.log(`copy file: ${currentPath}`)
-
-            createDir(`${directory}/${dirname}`, function (err) {
-              if (err) throw err
-              const newPath = path.join(directory, dirname, file)
-              fs.rename(currentPath, newPath, function (err) {
-                if (err) throw err
-              })
-              console.log(newPath)
-            })
-          })
-        }
-      })
+function readdir (src) {
+  return new Promise((resolve, reject) => {
+    fs.readdir(src, (err, files) => {
+      if (err) reject(err)
+      resolve(files)
     })
   })
 }
-try {
-  sorter(config.src)
-} catch (error) {
-  console.log(error.message)
+
+function stats (src) {
+  return new Promise((resolve, reject) => {
+    fs.stat(src, (err, stats) => {
+      if (err) reject(err)
+      resolve(stats)
+    })
+  })
 }
+
+function createDir (src) {
+  return new Promise((resolve, reject) => {
+    fs.mkdir(src, (err, cb) => {
+      if (err && !err.code === 'EEXIST') reject(err)
+      resolve(null)
+    })
+  })
+}
+
+function deleteDir (src) {
+  return new Promise((resolve, reject) => {
+    fs.rm(src, { recursive: true }, (err, cb) => {
+      if (err) reject(err)
+      resolve(console.log('deleted'))
+    })
+  })
+}
+
+function copyFile (currentPath, newPath) {
+  return new Promise((resolve, reject) => {
+    fs.copyFile(currentPath, newPath, (err, newPath) => {
+      if (err) reject(err)
+      resolve(newPath)
+    })
+  })
+}
+
+(async function () {
+  async function sorter (src) {
+    const files = await readdir(src)
+
+    for (const file of files) {
+      const currentPath = path.join(src, file)
+      const stat = await stats(currentPath)
+
+      if (stat.isDirectory()) {
+        await sorter(currentPath)
+      } else {
+        await createDir(config.dist)
+        const directory = config.dist
+        const parsePath = path.parse(currentPath)
+        const dirname = parsePath.name[0].toUpperCase()
+        await createDir(`${directory}/${dirname}`)
+        const newPath = path.join(directory, dirname, file)
+        await copyFile(currentPath, newPath)
+      }
+    }
+  }
+
+  try {
+    await sorter(config.src)
+    await deleteDir(config.src)
+  } catch (error) {
+    console.log(error)
+  }
+})()
