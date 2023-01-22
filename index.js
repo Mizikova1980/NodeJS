@@ -103,7 +103,9 @@ function copyFile (currentPath, newPath) {
 
   try {
     await sorter(config.src)
-    await deleteDir(config.src)
+    if (config.delete) {
+      await deleteDir(config.src)
+    }
   } catch (error) {
     console.log(error)
   }
